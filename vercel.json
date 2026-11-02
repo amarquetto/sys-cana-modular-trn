@@ -1,0 +1,9 @@
+{
+  "cleanUrls": true,
+  "headers": [
+    {
+      "source": "/js/(config|core|roles).js",
+      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
+    }
+  ]
+}
