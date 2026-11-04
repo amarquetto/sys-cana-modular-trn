@@ -1,66 +1,78 @@
-window.SysCanaAuth = {
-  setores: {
-    admin: { nome: "Administração", rotas: "*", write: "*" },
-    financeiro: {
-      nome: "Financeiro",
-      rotas: ["/home", "/fin/*", "/compras/solicitacoes", "/fat/notas", "/fat/relatorios"],
-      write: ["/fin/*"]
-    },
-    compras: {
-      nome: "Compras",
-      rotas: ["/home", "/compras/*", "/estoque", "/estoque/baixo", "/estoque/movimentos", "/fat/notas"],
-      write: ["/compras/*"]
-    },
-    pcp: {
-      nome: "PCP",
-      rotas: ["/home", "/pcp/*", "/estoque", "/estoque/baixo", "/compras/solicitacoes"],
-      write: ["/pcp/*"]
-    },
-    comercial: {
-      nome: "Comercial",
-      rotas: ["/home", "/com/clientes", "/com/novo", "/com/pedidos", "/estoque", "/fat/notas", "/fin/receber"],
-      write: ["/com/clientes", "/com/novo", "/com/pedidos"]
-    },
-    folha: {
-      nome: "Folha de pagamento",
-      rotas: ["/home", "/folha/*", "/fin/pagar"],
-      write: ["/folha/*"]
-    },
-    estoque: {
-      nome: "Estoque",
-      rotas: ["/home", "/estoque/*", "/compras/pedidos", "/pcp/lista"],
-      write: ["/estoque/*"]
-    },
-    faturamento: {
-      nome: "Faturamento",
-      rotas: ["/home", "/fat/*", "/com/pedidos", "/com/faturar", "/com/clientes", "/compras/pedidos"],
-      write: ["/fat/*", "/com/faturar"]
-    }
-  },
-  roleFromEmail(email) {
-    const local = String(email || "").split("@")[0].toLowerCase();
-    if (local === "folhapgt") return "folha";
-    if (this.setores[local]) return local;
-    return "admin";
-  },
-  matches(list, path) {
-    if (list === "*") return true;
-    return (list || []).some((r) => {
-      if (r.endsWith("/*")) {
-        const base = r.slice(0, -2);
-        return path === base || path.startsWith(base + "/");
-      }
-      return path === r;
-    });
-  },
-  info(email) {
-    const role = this.roleFromEmail(email);
-    return { role, nome: this.setores[role].nome, email };
-  },
-  can(email, path) {
-    return this.matches(this.setores[this.roleFromEmail(email)].rotas, path);
-  },
-  canWrite(email, path) {
-    return this.matches(this.setores[this.roleFromEmail(email)].write, path);
-  }
+// Definição das roles e permissões de menu
+const ROLE_MENUS = {
+    'admin': [
+        { label: 'Início', url: 'home.html' },
+        { label: 'Estoque', url: 'estoque.html' },
+        { label: 'Compras', url: 'compras.html' },
+        { label: 'Comercial', url: 'comercial.html' },
+        { label: 'Financeiro', url: 'financeiro.html' },
+        { label: 'Faturamento', url: 'faturamento.html' },
+        { label: 'Folha', url: 'folha.html' },
+        { label: 'PCP', url: 'pcp.html' }
+    ],
+    'compras': [
+        { label: 'Início', url: 'home.html' },
+        { label: 'Compras', url: 'compras.html' },
+        { label: 'Estoque', url: 'estoque.html' }
+    ],
+    'financeiro': [
+        { label: 'Início', url: 'home.html' },
+        { label: 'Financeiro', url: 'financeiro.html' },
+        { label: 'Faturamento', url: 'faturamento.html' }
+    ],
+    'pcp': [
+        { label: 'Início', url: 'home.html' },
+        { label: 'PCP', url: 'pcp.html' },
+        { label: 'Estoque', url: 'estoque.html' }
+    ]
 };
+
+document.addEventListener('DOMContentLoaded', async () => {
+    if (!window.supabase) return;
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        window.location.href = 'index.html';
+        return;
+    }
+
+    const email = user.email;
+    document.getElementById('user-email').innerText = email;
+    
+    // Simplificação para fins de demonstração (Idealmente, isso vem de uma tabela de perfis)
+    let userRole = 'admin'; 
+    if (email.includes('compras')) userRole = 'compras';
+    if (email.includes('finance')) userRole = 'financeiro';
+    if (email.includes('pcp')) userRole = 'pcp';
+
+    const menus = ROLE_MENUS[userRole] || ROLE_MENUS['admin'];
+    const menuList = document.getElementById('menu-items');
+    
+    if (menuList) {
+        menus.forEach(menu => {
+            const li = document.createElement('li');
+            const a = document.createElement('a');
+            a.href = menu.url;
+            a.innerText = menu.label;
+            
+            // Highlight current page
+            if (window.location.pathname.includes(menu.url)) {
+                a.classList.add('active');
+                a.style.fontWeight = 'bold';
+                a.style.color = '#3498db';
+            }
+            
+            li.appendChild(a);
+            menuList.appendChild(li);
+        });
+    }
+
+    // Logout
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            await supabase.auth.signOut();
+            window.location.href = 'index.html';
+        });
+    }
+});

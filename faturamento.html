@@ -1,29 +1,67 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SysCana — Faturamento</title>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/theme.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faturamento - SysCana Modular</title>
+    <link rel="stylesheet" href="css/theme.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <div class="app-shell">
-    <aside class="sidebar" id="sidebar">
-      <!-- Preenchido por core.js (renderSidebar), igual para todas as páginas -->
-    </aside>
-    <div class="main">
-      <header class="topbar">
-        <div><span class="setor-badge" id="setorBadge">Setor</span> <strong id="userLabel">SysCana</strong></div>
-        <button class="btn ghost small" id="logoutBtn" type="button">Sair</button>
-      </header>
-      <div class="content" id="view"></div>
+    <div class="sidebar">
+        <h2>SysCana</h2>
+        <ul id="menu-items">
+            <!-- Menus serão injetados aqui -->
+        </ul>
+        <div style="position: absolute; bottom: 20px; width: 100%; text-align: center;">
+            <button id="logout-btn" class="btn btn-danger">Sair</button>
+        </div>
     </div>
-  </div>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/config.js"></script>
-  <script src="js/roles.js"></script>
-  <script src="js/core.js"></script>
-  <script src="js/faturamento.js"></script>
+    <div class="main-content">
+        <header>
+            <h1>Módulo de Faturamento</h1>
+            <div class="user-info">
+                <span id="user-email">Carregando...</span>
+            </div>
+        </header>
+        
+        <div class="erp-dashboard" style="display: flex; gap: 20px; margin-bottom: 30px; margin-top: 20px;">
+            <div class="card" style="padding: 20px; border: 1px solid #ddd; border-radius: 8px; flex: 1; background-color: #f9f9f9; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <h3 style="margin-top: 0; color: #555;">Faturamento Total</h3>
+                <h2 id="total-faturado" style="color: #2c3e50; font-size: 2em; margin-bottom: 0;">Carregando...</h2>
+            </div>
+            <div class="card" style="padding: 20px; border: 1px solid #ddd; border-radius: 8px; flex: 1; background-color: #f9f9f9; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <h3 style="margin-top: 0; color: #555;">NFs Pendentes</h3>
+                <h2 id="nfs-pendentes" style="color: #e74c3c; font-size: 2em; margin-bottom: 0;">...</h2>
+            </div>
+        </div>
+
+        <div style="width: 100%; max-width: 800px; margin-bottom: 40px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <canvas id="faturamentoChart"></canvas>
+        </div>
+        
+        <div class="content-area">
+            <h2>Notas Fiscais (Simuladas)</h2>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                <thead>
+                    <tr style="background-color: #f2f2f2;">
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Número NF</th>
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Cliente</th>
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Valor</th>
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="nfs-table-body">
+                    <tr><td colspan="4" style="text-align: center; padding: 20px;">Carregando dados...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <script src="js/config.js"></script>
+    <script src="js/core.js"></script>
+    <script src="js/roles.js"></script>
+    <script src="js/faturamento.js"></script>
 </body>
 </html>
