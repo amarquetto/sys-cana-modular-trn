@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SysCana — Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/theme.css" />
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-art">
+        <span class="badge">ERP da cana-de-açúcar</span>
+        <h2>SysCana</h2>
+        <p>Estoque, PCP de talhões, notas fiscais, financeiro e folha — o mesmo fluxo do ERP, agora para usina e lavoura.</p>
+      </div>
+      <form class="login-form" id="loginForm">
+        <h3 style="color:var(--cane-green);margin-top:0">Bem-vindo de volta</h3>
+        <p class="muted">Entre com o e-mail do seu setor.</p>
+        <div class="field">
+          <label>Setor</label>
+          <select id="setorPick">
+            <option value="">Selecionar…</option>
+            <option value="admin@erp.com">Administração</option>
+            <option value="financeiro@erp.com">Financeiro</option>
+            <option value="pcp@erp.com">PCP</option>
+            <option value="compras@erp.com">Compras</option>
+            <option value="comercial@erp.com">Comercial</option>
+            <option value="folhapgt@erp.com">Folha</option>
+            <option value="estoque@erp.com">Estoque</option>
+            <option value="faturamento@erp.com">Faturamento</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>E-mail</label>
+          <input type="email" name="email" id="email" required placeholder="setor@erp.com" />
+        </div>
+        <div class="field">
+          <label>Senha</label>
+          <input type="password" name="password" id="password" required autocomplete="current-password" />
+        </div>
+        <div id="msg"></div>
+        <button class="btn" type="submit" style="width:100%">Entrar</button>
+        <p class="setor-list">Da lavoura ao faturamento, cada acesso abre só o seu trecho da usina. Identifique-se e siga o fluxo da safra.</p>
+      </form>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script>
+    function createSb() {
+      let url = String((window.SYSCANA || {}).supabaseUrl || "").replace(/\/+$/, "");
+      url = url.replace(/\/rest\/v1$/i, "").replace(/\/auth\/v1$/i, "");
+      const key = (window.SYSCANA || {}).supabaseAnonKey || "";
+      return window.supabase.createClient(url, key);
+    }
+    const sb = createSb();
+    sb.auth.getSession().then(({ data }) => {
+      if (data.session) location.href = "home.html#/home";
+    });
+    document.getElementById("setorPick").addEventListener("change", (e) => {
+      const email = e.target.value;
+      if (!email) return;
+      document.getElementById("email").value = email;
+      document.getElementById("password").value = "";
+      document.getElementById("password").focus();
+    });
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const { error } = await sb.auth.signInWithPassword({
+        email: fd.get("email"),
+        password: fd.get("password")
+      });
+      const msg = document.getElementById("msg");
+      if (error) {
+        msg.innerHTML = `<div class="flash err">${error.message}</div>`;
+        return;
+      }
+      location.href = "home.html#/home";
+    });
+  </script>
+</body>
+</html>
