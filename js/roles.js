@@ -1,105 +1,103 @@
-// Definição das roles e permissões de menu
+
+// Definição das roles e permissões
 const ROLE_MENUS = {
     'admin': [
-        { label: 'Página inicial', url: 'home.html', icon: 'fas fa-home' },
-        { label: 'Estoque', url: 'estoque.html', icon: 'fas fa-boxes' },
-        { label: 'Compras', url: 'compras.html', icon: 'fas fa-shopping-cart' },
-        { label: 'Comercial', url: 'comercial.html', icon: 'fas fa-chart-line' },
-        { label: 'Financeiro', url: 'financeiro.html', icon: 'fas fa-money-bill-wave' },
-        { label: 'Faturamento', url: 'faturamento.html', icon: 'fas fa-file-invoice' },
-        { label: 'Folha', url: 'folha.html', icon: 'fas fa-users' },
-        { label: 'PCP', url: 'pcp.html', icon: 'fas fa-industry' }
+        { label: 'Página inicial', url: 'home.html' },
+        { label: 'Estoque', url: 'estoque.html' },
+        { label: 'Compras', url: 'compras.html' },
+        { label: 'Comercial', url: 'comercial.html' },
+        { label: 'Financeiro', url: 'financeiro.html' },
+        { label: 'Faturamento', url: 'faturamento.html' },
+        { label: 'Folha', url: 'folha.html' },
+        { label: 'PCP', url: 'pcp.html' }
     ],
     'compras': [
-        { label: 'Página inicial', url: 'home.html', icon: 'fas fa-home' },
-        { label: 'Compras', url: 'compras.html', icon: 'fas fa-shopping-cart' },
-        { label: 'Estoque', url: 'estoque.html', icon: 'fas fa-boxes' }
+        { label: 'Página inicial', url: 'home.html' },
+        { label: 'Compras', url: 'compras.html' },
+        { label: 'Estoque', url: 'estoque.html' }
     ],
     'financeiro': [
-        { label: 'Página inicial', url: 'home.html', icon: 'fas fa-home' },
-        { label: 'Financeiro', url: 'financeiro.html', icon: 'fas fa-money-bill-wave' },
-        { label: 'Faturamento', url: 'faturamento.html', icon: 'fas fa-file-invoice' }
+        { label: 'Página inicial', url: 'home.html' },
+        { label: 'Financeiro', url: 'financeiro.html' },
+        { label: 'Faturamento', url: 'faturamento.html' }
     ],
     'pcp': [
-        { label: 'Página inicial', url: 'home.html', icon: 'fas fa-home' },
-        { label: 'PCP', url: 'pcp.html', icon: 'fas fa-industry' },
-        { label: 'Estoque', url: 'estoque.html', icon: 'fas fa-boxes' }
+        { label: 'Página inicial', url: 'home.html' },
+        { label: 'PCP', url: 'pcp.html' },
+        { label: 'Estoque', url: 'estoque.html' }
     ]
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
-    if (!window.supabase) return;
-    
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        window.location.href = 'index.html';
+    // Aborta se estiver na tela de login para não dar erro
+    if (window.location.pathname.endsWith('index.html') || window.location.pathname === '/') return;
+
+    if (!window.supabase) {
+        console.error("Supabase não carregado.");
         return;
     }
 
-    const email = user.email;
-    const userEmailSpan = document.getElementById('user-email');
-    if(userEmailSpan) userEmailSpan.innerText = email;
-    
-    // Simplificação para fins de demonstração (Idealmente, isso vem de uma tabela de perfis)
-    let userRole = 'admin'; 
-    if (email.includes('compras')) userRole = 'compras';
-    if (email.includes('finance')) userRole = 'financeiro';
-    if (email.includes('pcp')) userRole = 'pcp';
+    try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        
+        if (error || !user) {
+            window.location.href = 'index.html';
+            return;
+        }
 
-    const menus = ROLE_MENUS[userRole] || ROLE_MENUS['admin'];
-    
-    // Verifica se é a estrutura antiga (ul#menu-items) ou a nova (ul.sidebar-menu)
-    const oldMenuList = document.getElementById('menu-items');
-    const newMenuList = document.querySelector('.sidebar-menu');
-    
-    if (oldMenuList) {
-        oldMenuList.innerHTML = '';
-        menus.forEach(menu => {
-            const li = document.createElement('li');
-            const a = document.createElement('a');
-            a.href = menu.url;
-            a.innerHTML = `<i class="${menu.icon || 'fas fa-circle'}" style="margin-right:8px;"></i> ${menu.label}`;
-            
-            if (window.location.pathname.includes(menu.url)) {
-                a.classList.add('active');
-                a.style.fontWeight = 'bold';
-                a.style.color = '#3498db';
+        const email = user.email;
+        const userEmailSpan = document.getElementById('user-email');
+        if(userEmailSpan) userEmailSpan.innerText = email;
+
+        // Regra simples para definir a role baseada no e-mail
+        let userRole = 'admin'; 
+        if (email.includes('compras')) userRole = 'compras';
+        if (email.includes('finance')) userRole = 'financeiro';
+        if (email.includes('pcp')) userRole = 'pcp';
+
+        const menus = ROLE_MENUS[userRole] || ROLE_MENUS['admin'];
+        
+        // 1. Trata o menu antigo (ul#menu-items) das telas originais
+        const oldMenuList = document.getElementById('menu-items');
+        if (oldMenuList) {
+            oldMenuList.innerHTML = ''; // Limpa menu carregando
+            menus.forEach(menu => {
+                const li = document.createElement('li');
+                const a = document.createElement('a');
+                a.href = menu.url;
+                a.innerText = menu.label;
+                
+                if (window.location.pathname.includes(menu.url)) {
+                    a.classList.add('active');
+                }
+                
+                li.appendChild(a);
+                oldMenuList.appendChild(li);
+            });
+        }
+
+        // 2. Trata o menu novo exclusivo da tela do Financeiro (ul.sidebar-menu)
+        const newMenuList = document.querySelector('.sidebar-menu');
+        if (newMenuList && window.location.pathname.includes('financeiro.html')) {
+            const firstLi = newMenuList.querySelector('li');
+            if(firstLi) {
+                firstLi.innerHTML = '<a href="home.html" style="color: #e6c84c; border-left: none;"><i class="fas fa-home" style="margin-right:8px;"></i> Voltar ao ERP Principal</a>';
             }
-            
-            li.appendChild(a);
-            oldMenuList.appendChild(li);
+        }
+
+        // 3. Configura Logout Universal (Pega qualquer botão de sair)
+        const logoutBtns = document.querySelectorAll('#logout-btn, .btn-outline');
+        logoutBtns.forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                await supabase.auth.signOut();
+                window.location.href = 'index.html';
+            });
         });
-    }
 
-    // Para o financeiro novo, injetamos links absolutos em vez de abas
-    if (newMenuList && window.location.pathname.includes('financeiro.html')) {
-        // Limpa apenas a parte inicial para não matar as abas do financeiro
-        const firstLi = newMenuList.querySelector('li');
-        if(firstLi) {
-             const homeLink = document.createElement('a');
-             homeLink.href = 'home.html';
-             homeLink.innerHTML = '<i class="fas fa-home"></i> Voltar ao ERP Principal';
-             homeLink.style.color = '#e6c84c';
-             firstLi.innerHTML = '';
-             firstLi.appendChild(homeLink);
-        }
-    }
-
-    // Logout Genérico
-    const logoutBtn = document.getElementById('logout-btn') || document.querySelector('.btn-outline');
-    if (logoutBtn) {
-        // Se for o botão do financeiro (sem id), adicionamos listener
-        if(!logoutBtn.id) {
-             logoutBtn.addEventListener('click', async (e) => {
-                e.preventDefault(); // Evita o onclick hardcoded do html
-                await supabase.auth.signOut();
-                window.location.href = 'index.html';
-            });
-        } else {
-            logoutBtn.addEventListener('click', async () => {
-                await supabase.auth.signOut();
-                window.location.href = 'index.html';
-            });
-        }
+    } catch(err) {
+        console.error("Erro na validação do usuário:", err);
+        window.location.href = 'index.html';
     }
 });
+    
