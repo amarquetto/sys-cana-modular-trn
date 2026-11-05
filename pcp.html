@@ -1,87 +1,38 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PCP - SysCana Modular</title>
-    <link rel="stylesheet" href="css/theme.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#11301f" />
+  <title>SysCana — PCP</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2311301f'/%3E%3Ctext x='32' y='42' font-family='Arial' font-weight='800' font-size='28' text-anchor='middle' fill='%23dcb94a'%3ESC%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/theme.css" />
 </head>
 <body>
-    <div class="sidebar">
-        <h2>SysCana</h2>
-        <ul id="menu-items">
-            <!-- Menus serão injetados aqui -->
-        </ul>
-        <div style="position: absolute; bottom: 20px; width: 100%; text-align: center;">
-            <button id="logout-btn" class="btn btn-danger">Sair</button>
+  <noscript><div class="fatal"><h2>JavaScript desativado</h2><p>O SysCana precisa de JavaScript para funcionar.</p></div></noscript>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <!-- Preenchido por core.js (renderSidebar), igual para todas as páginas -->
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <div class="topbar-user">
+          <button class="menu-btn" id="menuBtn" type="button" aria-label="Abrir menu">&#9776;</button>
+          <span class="setor-badge" id="setorBadge">Setor</span>
+          <strong id="userLabel">SysCana</strong>
         </div>
+        <button class="btn ghost small" id="logoutBtn" type="button">Sair</button>
+      </header>
+      <main class="content" id="view"><div class="card loading">Carregando…</div></main>
     </div>
-    <div class="main-content">
-        <header>
-            <h1>Módulo PCP (Planejamento e Controle de Produção)</h1>
-            <div class="user-info">
-                <span id="user-email">Carregando...</span>
-            </div>
-        </header>
-        
-        <div class="content-area" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
-            
-            <!-- Cadastros Básicos -->
-            <div class="card" style="padding: 20px; border: 1px solid #ddd; border-radius: 8px; background-color: #fff;">
-                <h3 style="border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-top: 0;">Cadastros</h3>
-                <ul style="list-style-type: none; padding: 0;">
-                    <li style="margin-bottom: 15px;">
-                        <strong>Máquinas e Equipamentos:</strong><br>
-                        Tratores, Colhedoras, Transbordos
-                        <button class="btn btn-sm" style="margin-top: 5px; font-size: 0.8em;">Gerenciar Equipamentos</button>
-                    </li>
-                    <li>
-                        <strong>Frota:</strong><br>
-                        Gestão geral da frota
-                        <button class="btn btn-sm" style="margin-top: 5px; font-size: 0.8em;">Gerenciar Frota</button>
-                    </li>
-                </ul>
-            </div>
-
-            <!-- Operações Agrícolas -->
-            <div class="card" style="padding: 20px; border: 1px solid #ddd; border-radius: 8px; background-color: #fff;">
-                <h3 style="border-bottom: 2px solid #e67e22; padding-bottom: 10px; margin-top: 0;">Operações Agrícolas</h3>
-                <p>Preparação do solo, Adubação, Pulverização de herbicidas, Irrigação e Colheita.</p>
-                <button class="btn">Nova Ordem de Operação</button>
-            </div>
-
-            <!-- Gestão de Áreas -->
-            <div class="card" style="padding: 20px; border: 1px solid #ddd; border-radius: 8px; background-color: #fff;">
-                <h3 style="border-bottom: 2px solid #2ecc71; padding-bottom: 10px; margin-top: 0;">Gestão de Áreas</h3>
-                <ul style="list-style-type: none; padding: 0;">
-                    <li style="margin-bottom: 10px;"><strong>Talhões</strong></li>
-                    <li>
-                        <strong>Campos:</strong>
-                        <ul style="margin-top: 5px;">
-                            <li>Data do último plantio</li>
-                            <li>Número de cortes da cana</li>
-                        </ul>
-                    </li>
-                </ul>
-                <button class="btn btn-sm" style="margin-top: 10px;">Atualizar Campos/Talhões</button>
-            </div>
-
-            <!-- Apontamentos -->
-            <div class="card" style="padding: 20px; border: 1px solid #ddd; border-radius: 8px; background-color: #fff;">
-                <h3 style="border-bottom: 2px solid #9b59b6; padding-bottom: 10px; margin-top: 0;">Menu de Apontamentos</h3>
-                <div style="display: flex; gap: 10px; flex-direction: column;">
-                    <button class="btn" style="background-color: #9b59b6; color: white;">Apontamento de Trato</button>
-                    <button class="btn" style="background-color: #8e44ad; color: white; font-weight: bold; font-size: 1.1em; padding: 15px;">Novo Apontamento de Colheita</button>
-                </div>
-            </div>
-
-        </div>
-    </div>
-    
-    <script src="js/config.js"></script>
-    <script src="js/core.js"></script>
-    <script src="js/roles.js"></script>
-    <script src="js/pcp.js"></script>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/roles.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/pcp.js"></script>
 </body>
 </html>

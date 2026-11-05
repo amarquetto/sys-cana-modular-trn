@@ -584,7 +584,7 @@
         </div>
       </div>` +
       (totalValor === 0
-        ? `<div class="card">${flash("err", "Ainda não há saídas com custo médio calculado no período selecionado. À medida que as compras e ajustes com custo forem registrados, os itens serão ranqueados automaticamente.")}</div>`
+        ? `<div class="card">${flash("info", "Ainda não há saídas com custo médio calculado no período selecionado. À medida que as compras e ajustes com custo forem registrados, os itens serão ranqueados automaticamente.")}</div>`
         : "") +
       table(
         ["Classe", "SKU", "Produto", "Categoria", "Qtd Saída", "Valor Consumido", "% do Total", "% Acumulado"],

@@ -56,10 +56,11 @@
     if (!f) return alert("Nota não encontrada!");
 
     const win = window.open("", "_blank");
+    if (!win) return alert("O navegador bloqueou a janela de impressão. Libere pop-ups para este site.");
     win.document.write(`
       <html>
         <head>
-          <title>Espelho NF - ${f.numero_fatura}</title>
+          <title>Espelho NF - ${esc(f.numero_fatura)}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 25px; color: #333; }
             .box { border: 1px solid #ccc; padding: 12px; margin-bottom: 12px; border-radius: 6px; }
@@ -72,10 +73,10 @@
         <body>
           <h2>SysCana ERP Agrobusiness - Espelho de NF-e (Produtor Rural)</h2>
           <div class="box">
-            <strong>Número da NF:</strong> ${f.numero_fatura} | <strong>CFOP:</strong> ${f.cfop || '5.101'}<br>
-            <strong>Natureza de Operação:</strong> ${f.natureza_operacao} ${f.categoria_insumo ? `(${f.categoria_insumo})` : ''}<br>
+            <strong>Número da NF:</strong> ${esc(f.numero_fatura)} | <strong>CFOP:</strong> ${esc(f.cfop || '5.101')}<br>
+            <strong>Natureza de Operação:</strong> ${esc(f.natureza_operacao)} ${f.categoria_insumo ? `(${esc(f.categoria_insumo)})` : ''}<br>
             <strong>Emissão:</strong> ${dbr(f.data_emissao)} | <strong>Vencimento (5º DU):</strong> ${dbr(f.data_vencimento)}<br>
-            <strong>Destinatário / Usina:</strong> ${f.clientes?.nome || f.fornecedores?.nome_fantasia || "—"}
+            <strong>Destinatário / Usina:</strong> ${esc(f.clientes?.nome || f.fornecedores?.nome_fantasia || "—")}
           </div>
           ${f.toneladas_pesadas ? `
           <div class="box">
@@ -98,7 +99,7 @@
           </div>
           <div class="box" style="background:#f9f9f9;">
             <strong>Informações Adicionais de Interesse do Fisco:</strong><br>
-            <small>${f.inf_adicionais_fiscal || 'ICMS Diferido nos termos do Art. 345 do RICMS/SP. PIS/COFINS com alíquota suspensa (CST 09 - Lei 10.925/2004).'}</small>
+            <small>${esc(f.inf_adicionais_fiscal) || 'ICMS Diferido nos termos do Art. 345 do RICMS/SP. PIS/COFINS com alíquota suspensa (CST 09 - Lei 10.925/2004).'}</small>
           </div>
           <button onclick="window.print()" style="padding:10px 20px; background:#2e6b38; color:#fff; border:none; border-radius:4px; cursor:pointer;">🖨️ Imprimir Espelho Fiscal</button>
         </body>

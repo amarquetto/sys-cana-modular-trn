@@ -3,21 +3,30 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#11301f" />
   <title>SysCana — Folha</title>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&display=swap" rel="stylesheet" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2311301f'/%3E%3Ctext x='32' y='42' font-family='Arial' font-weight='800' font-size='28' text-anchor='middle' fill='%23dcb94a'%3ESC%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/theme.css" />
 </head>
 <body>
+  <noscript><div class="fatal"><h2>JavaScript desativado</h2><p>O SysCana precisa de JavaScript para funcionar.</p></div></noscript>
   <div class="app-shell">
     <aside class="sidebar" id="sidebar">
       <!-- Preenchido por core.js (renderSidebar), igual para todas as páginas -->
     </aside>
     <div class="main">
       <header class="topbar">
-        <div><span class="setor-badge" id="setorBadge">Setor</span> <strong id="userLabel">SysCana</strong></div>
+        <div class="topbar-user">
+          <button class="menu-btn" id="menuBtn" type="button" aria-label="Abrir menu">&#9776;</button>
+          <span class="setor-badge" id="setorBadge">Setor</span>
+          <strong id="userLabel">SysCana</strong>
+        </div>
         <button class="btn ghost small" id="logoutBtn" type="button">Sair</button>
       </header>
-      <div class="content" id="view"></div>
+      <main class="content" id="view"><div class="card loading">Carregando…</div></main>
     </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

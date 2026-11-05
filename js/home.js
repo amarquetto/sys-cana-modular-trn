@@ -15,7 +15,7 @@
       sb.from("contas_pagar").select("valor,status")
     ]);
     const baixo = produtos.filter((p) => Number(p.qtd_minima || 0) > 0 && Number(p.quantidade_estoque) <= Number(p.qtd_minima || 0)).length;
-    const vendas = (fats.data || []).filter((f) => f.natureza_operacao === "Venda").reduce((s, f) => s + Number(f.valor_total), 0);
+    const vendas = (fats.data || []).filter((f) => String(f.natureza_operacao || "").includes("Venda")).reduce((s, f) => s + Number(f.valor_total), 0);
     const aRec = (rec.data || []).filter((r) => r.status === "Aberto").reduce((s, r) => s + Number(r.valor), 0);
     const aPag = (pag.data || []).filter((r) => r.status === "Aberto").reduce((s, r) => s + Number(r.valor), 0);
     const waitFin = (sols.data || []).filter((s) => s.status === "AguardandoFinanceiro").length;
