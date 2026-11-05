@@ -18,7 +18,7 @@ window.SysCanaAuth = {
     },
     comercial: {
       nome: "Comercial",
-      rotas: ["/home", "/com/clientes", "/com/novo", "/com/pedidos", "/estoque", "/fat/notas", "/fin/receber"],
+      rotas: ["/home", "/com/clientes", "/com/novo", "/com/pedidos", "/fat/notas", "/fin/receber"],
       write: ["/com/clientes", "/com/novo", "/com/pedidos"]
     },
     folha: {
@@ -33,8 +33,8 @@ window.SysCanaAuth = {
     },
     faturamento: {
       nome: "Faturamento",
-      rotas: ["/home", "/fat/*", "/com/pedidos", "/com/faturar", "/com/clientes", "/compras/pedidos"],
-      write: ["/fat/*", "/com/faturar"]
+      rotas: ["/home", "/fat/*", "/com/pedidos", "/com/clientes", "/compras/pedidos"],
+      write: ["/fat/*"]
     }
   },
   roleFromEmail(email) {

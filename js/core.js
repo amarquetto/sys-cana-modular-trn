@@ -85,6 +85,7 @@
       allow: "pcp",
       title: "PCP",
       links: [
+        ["/pcp/ordens", "Ordens de contrato"],
         ["/pcp/requisicao", "Pedir insumo"],
         ["/pcp/cana", "Cana"],
         ["/pcp/insumos", "Insumos"],
@@ -120,11 +121,10 @@
       title: "Comercial",
       links: [
         ["/com/clientes", "Clientes"],
-        ["/com/novo", "Pedido de venda"],
-        ["/com/pedidos", "Pedidos de venda"]
+        ["/com/novo", "Novo contrato de cana"],
+        ["/com/pedidos", "Contratos"]
       ],
       consultas: [
-        ["/estoque", "Estoque de cana"],
         ["/fat/notas", "Notas faturadas"],
         ["/fin/receber", "Duplicatas a receber"]
       ]
@@ -162,7 +162,7 @@
       title: "Faturamento",
       links: [
         ["/fat/notas", "Notas fiscais"],
-        ["/com/pedidos", "Faturar pedidos de venda"],
+        ["/com/pedidos", "Contratos de cana"],
         ["/fat/aliquotas", "Alíquotas"],
         ["/fat/relatorios", "Relatórios"],
         ["/fat/config", "Configurações"]
@@ -267,6 +267,10 @@
       Pendente: "wait",
       "EM PROGRESSO": "wait",
       CONCLUIDO: "ok",
+      CANCELADO: "bad",
+      Cancelado: "bad",
+      "Em Produção": "wait",
+      "Aguardando Recebimento": "info",
       ENCERRADA: "bad",
       Ativo: "ok",
       Demitido: "bad"

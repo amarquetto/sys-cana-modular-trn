@@ -1,5 +1,5 @@
 (() => {
-  const { sb, num, esc, flash, title, options, table, chip, canWrite, list, bindRpc, actionButtons, openFormModal, bindCrud } = window.SysCanaCore;
+  const { sb, money, num, esc, flash, title, options, table, chip, canWrite, list, bindRpc, actionButtons, openFormModal, bindCrud } = window.SysCanaCore;
   const view = document.getElementById("view");
 
   async function pcpRequisicao() {
@@ -288,6 +288,75 @@
     };
   }
 
+  async function pcpOrdens() {
+    const { data, error } = await sb
+      .from("producoes")
+      .select("*, contratos_cana(*)")
+      .not("contrato_id", "is", null)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    const pode = canWrite("/pcp/ordens");
+    const hoje = new Date().toISOString().slice(0, 10);
+    const dataBr = (d) => (d ? String(d).slice(0, 10).split("-").reverse().join("/") : "—");
+    const atr4 = (v) => Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+    const abertas = (data || []).filter((o) => o.status === "EM PROGRESSO");
+    const linha = (o) => {
+      const c = o.contratos_cana || {};
+      const atrasada = o.status === "EM PROGRESSO" && c.data_entrega < hoje;
+      const acao =
+        o.status === "EM PROGRESSO" && pode
+          ? `<button class="btn small gold" data-baixa="${o.id}">Dar baixa</button>`
+          : o.status === "CONCLUIDO"
+          ? "✔ No Financeiro"
+          : "—";
+      const feita = o.status === "CONCLUIDO";
+      return `<tr><td>${esc(String(o.nome).split(" — ")[0])}</td><td>${esc(c.nome)}</td>
+        <td>${dataBr(c.data_entrega)}${atrasada ? ' <span class="chip bad">Atrasada</span>' : ""}</td>
+        <td>${num(feita ? o.toneladas : c.quantidade)} t${feita ? `<br><small>ATR ${num(o.atr)} kg/t</small>` : ""}</td>
+        <td>R$ ${atr4(c.preco_atr)}</td><td>${feita ? money(c.valor_total) : "—"}</td><td>${chip(o.status)}</td><td>${acao}</td></tr>`;
+    };
+    view.innerHTML =
+      title("Ordens de contrato") +
+      `<p class="help">Cada contrato do Comercial cai aqui como ordem de produção. A cana <b>não passa pelo estoque</b>. Ao <b>dar baixa</b>, informe as toneladas entregues e o ATR apurado: o sistema calcula <b>t × ATR × preço do ATR</b> e envia a conta a receber ao Financeiro.</p>` +
+      `<div class="grid grid-3" style="margin-bottom:16px"><div class="card"><div class="muted">Aguardando entrega</div><div class="kpi">${abertas.length}</div></div>
+        <div class="card"><div class="muted">Toneladas a produzir</div><div class="kpi">${num(abertas.reduce((t, o) => t + Number(o.toneladas), 0))} t</div></div></div>` +
+      table(["OP", "Cliente", "Entrega", "Toneladas", "Preço ATR", "Valor", "Status", "Ação"], (data || []).map(linha).join(""));
+    view.querySelectorAll("[data-baixa]").forEach((b) => {
+      const o = data.find((x) => x.id === b.dataset.baixa);
+      const c = o.contratos_cana || {};
+      b.onclick = () => {
+        const modal = openFormModal(
+          "Dar baixa na ordem",
+          `<p class="muted">${esc(o.nome)}<br>Preço do ATR: <b>R$ ${atr4(c.preco_atr)}</b>/kg · Contratado: <b>${num(c.quantidade)} t</b></p>
+           <div class="field"><label>Toneladas entregues</label><input type="number" step="0.001" min="0.001" name="toneladas" id="bx-t" required value="${Number(c.quantidade)}" /></div>
+           <div class="field"><label>ATR apurado (kg/t)</label><input type="number" step="0.01" min="0.01" name="atr" id="bx-atr" required placeholder="Ex.: 132,50" /></div>
+           <div class="field"><label>Vencimento (opcional)</label><input type="date" name="vencimento" /><small class="muted">Em branco = 5º dia útil do mês seguinte.</small></div>
+           <div class="box" id="bx-prev">Valor a receber: <b>—</b></div>`,
+          async (fd, msgEl) => {
+            const { error: err } = await sb.rpc("baixar_contrato_cana", {
+              p_producao_id: o.id,
+              p_toneladas: Number(fd.toneladas),
+              p_atr: Number(fd.atr),
+              p_vencimento: fd.vencimento || null
+            });
+            if (err) {
+              msgEl.innerHTML = flash("err", err.message);
+              return false;
+            }
+            pcpOrdens();
+            return true;
+          }
+        );
+        modal.querySelector("button[type=submit]").textContent = "Dar baixa e enviar ao Financeiro";
+        const calc = () => {
+          const v = Number(document.getElementById("bx-t").value) * Number(document.getElementById("bx-atr").value) * Number(c.preco_atr);
+          document.getElementById("bx-prev").innerHTML = `Valor a receber: <b>${v > 0 ? money(v) : "—"}</b>`;
+        };
+        ["bx-t", "bx-atr"].forEach((id) => document.getElementById(id).addEventListener("input", calc));
+      };
+    });
+  }
+
   async function pcpLista() {
     const { data, error } = await sb.from("producoes").select("*, talhoes(nome), canas(nome), insumos_pcp(nome)").order("created_at", { ascending: false });
     if (error) throw error;
@@ -299,7 +368,7 @@
           .map(
             (p) =>
               `<tr><td>${esc(p.nome)}</td><td>${esc(p.talhoes?.nome)}</td><td>${esc(p.canas?.nome)}</td><td>${esc(p.insumos_pcp?.nome)}</td><td>${num(p.toneladas)}</td><td>${chip(p.status)}</td>
-              <td>${p.status !== "CONCLUIDO" && canWrite("/pcp/lista") ? `<button class="btn small" data-ok="${p.id}">Concluir (estoque)</button>` : "—"}</td></tr>`
+              <td>${p.contrato_id ? `<a href="#/pcp/ordens">Ordem de contrato</a>` : p.status !== "CONCLUIDO" && p.status !== "CANCELADO" && canWrite("/pcp/lista") ? `<button class="btn small" data-ok="${p.id}">Concluir (estoque)</button>` : "—"}</td></tr>`
           )
           .join("")
       );
@@ -313,6 +382,7 @@
   }
 
   window.SysCanaCore.startRouter({
+    "/pcp/ordens": pcpOrdens,
     "/pcp/requisicao": pcpRequisicao,
     "/pcp/cana": pcpCana,
     "/pcp/insumos": pcpInsumos,
@@ -320,5 +390,5 @@
     "/pcp/variedades": pcpVariedades,
     "/pcp/producao": pcpProducao,
     "/pcp/lista": pcpLista
-  }, "/pcp/lista");
+  }, "/pcp/ordens");
 })();

@@ -68,82 +68,96 @@
     }
   }
 
-  async function pedidoNovo() {
-    const [cli, canas] = await Promise.all([list("clientes", "nome"), list("canas", "nome")]);
+  const atr4 = (v) => Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+  const nContrato = (c) => String(c.numero).padStart(4, "0");
+  const dataBr = (d) => (d ? String(d).slice(0, 10).split("-").reverse().join("/") : "—");
+
+  function mascaraDoc(el) {
+    el.addEventListener("input", () => {
+      const d = el.value.replace(/\D/g, "").slice(0, 14);
+      el.value =
+        d.length <= 11
+          ? d.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2")
+          : d.replace(/^(\d{2})(\d)/, "$1.$2").replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3").replace(/\.(\d{3})(\d)/, ".$1/$2").replace(/(\d{4})(\d)/, "$1-$2");
+    });
+  }
+
+  async function contratoNovo() {
+    const hoje = new Date().toISOString().slice(0, 10);
     view.innerHTML =
-      title("Pedido de venda") +
-      `<div class="card"><p class="muted">Comercial abre o pedido. O Faturamento emite a NF, baixa estoque e gera duplicata a receber.</p>
-      <form id="f">
-        <div class="field"><label>Cliente</label><select name="cliente_id" required>${options(cli, "id", "nome")}</select></div>
-        <div class="field"><label>Cana</label><select name="cana_id" required>${options(canas, "id", "nome")}</select></div>
-        <div class="field"><label>Quantidade (t)</label><input type="number" step="0.001" min="0.001" name="quantidade" required /></div>
-        <div class="field"><label>Preço por t</label><input type="number" step="0.01" min="0.01" name="valor_unitario" required /></div>
-        <div class="field"><label>Pagamento</label><select name="forma_pgto"><option>Boleto</option><option>PIX</option><option>Transferência</option></select></div>
-        <button class="btn" type="submit">Registrar pedido</button>
+      title("Novo contrato de cana") +
+      `<div class="card"><p class="help" style="margin-top:0">Ao salvar, o contrato vira uma <b>ordem de produção no PCP</b>. A cana <b>não passa pelo estoque</b>: na entrega o PCP informa as toneladas e o ATR apurado, e o valor a receber é calculado como <b>toneladas × ATR (kg/t) × preço do ATR</b>.</p>
+      <form id="f" class="grid grid-2">
+        <div class="field"><label>Nome do cliente / produtor</label><input name="nome" required minlength="2" placeholder="Ex.: Usina São João" /></div>
+        <div class="field"><label>CPF / CNPJ</label><input name="documento" id="doc" required inputmode="numeric" placeholder="000.000.000-00 ou 00.000.000/0000-00" /></div>
+        <div class="field"><label>Preço do ATR (R$ por kg)</label><input type="number" step="0.0001" min="0.0001" name="preco_atr" required placeholder="1,1250" /></div>
+        <div class="field"><label>Data de entrega</label><input type="date" name="data_entrega" min="${hoje}" required /></div>
+        <div class="field"><label>Quantidade de cana (t)</label><input type="number" step="0.001" min="0.001" name="quantidade" required /></div>
+        <div><button class="btn" type="submit">Salvar contrato e enviar ao PCP</button></div>
       </form><div id="m"></div></div>`;
+    mascaraDoc(document.getElementById("doc"));
     document.getElementById("f").onsubmit = async (e) => {
       e.preventDefault();
       const fd = Object.fromEntries(new FormData(e.target));
-      const q = Number(fd.quantidade);
-      const vu = Number(fd.valor_unitario);
-      const { error } = await sb.from("pedidos").insert({
-        cliente_id: fd.cliente_id,
-        cana_id: fd.cana_id,
-        quantidade: q,
-        unidade: "t",
-        forma_pgto: fd.forma_pgto,
-        valor_unitario: vu,
-        valor_total: +(vu * q).toFixed(2),
-        status: "Aberto"
+      const btn = e.target.querySelector("button[type=submit]");
+      btn.disabled = true;
+      const { error } = await sb.rpc("registrar_contrato_cana", {
+        p_nome: fd.nome,
+        p_documento: fd.documento,
+        p_preco_atr: Number(fd.preco_atr),
+        p_data_entrega: fd.data_entrega,
+        p_quantidade: Number(fd.quantidade)
       });
-      document.getElementById("m").innerHTML = error ? flash("err", error.message) : flash("ok", "Pedido no Comercial.");
+      btn.disabled = false;
+      document.getElementById("m").innerHTML = error ? flash("err", error.message) : flash("ok", "Contrato salvo. Ordem de produção enviada ao PCP.");
       if (!error) location.hash = "#/com/pedidos";
     };
   }
 
-  async function pedidosVenda() {
-    const { data, error } = await sb.from("pedidos").select("*, clientes(nome), canas(nome)").order("created_at", { ascending: false });
+  async function contratos() {
+    const { data, error } = await sb.from("contratos_cana").select("*").order("numero", { ascending: false });
     if (error) throw error;
+    const hoje = new Date().toISOString().slice(0, 10);
+    const pode = canWrite("/com/pedidos");
+    const entrega = (c) => dataBr(c.data_entrega) + (c.status === "Em Produção" && c.data_entrega < hoje ? ' <span class="chip bad">Atrasado</span>' : "");
+    const acao = (c) =>
+      c.status === "Em Produção" && pode
+        ? `<button class="btn small ghost" data-cancel="${c.id}">Cancelar</button>`
+        : c.status === "Em Produção"
+        ? "Aguardando PCP"
+        : c.status === "Aguardando Recebimento"
+        ? "Aguardando Financeiro"
+        : "—";
+    const totalAberto = (data || []).filter((c) => c.status === "Em Produção").reduce((s, c) => s + Number(c.quantidade), 0);
     view.innerHTML =
-      title("Pedidos de venda") +
+      title("Contratos de cana") +
+      `<div class="grid grid-3" style="margin-bottom:16px">
+        <div class="card"><div class="muted">Em produção</div><div class="kpi">${(data || []).filter((c) => c.status === "Em Produção").length}</div></div>
+        <div class="card"><div class="muted">Toneladas a entregar</div><div class="kpi">${num(totalAberto)} t</div></div>
+        <div class="card"><div class="muted">A receber (entregue)</div><div class="kpi">${money((data || []).filter((c) => c.status === "Aguardando Recebimento").reduce((s, c) => s + Number(c.valor_total || 0), 0))}</div></div>
+      </div>` +
       table(
-        ["Cliente", "Cana", "t", "Total", "Status", "Ação"],
+        ["Nº", "Cliente", "CPF/CNPJ", "Entrega", "t contrat.", "Preço ATR", "Entregue (t · ATR)", "Valor", "Status", "Ação"],
         (data || [])
           .map(
-            (p) =>
-              `<tr><td>${esc(p.clientes?.nome)}</td><td>${esc(p.canas?.nome)}</td><td>${num(p.quantidade)}</td><td>${money(p.valor_total)}</td><td>${chip(p.status)}</td>
-              <td>${p.status === "Aberto" && canWrite("/com/faturar") ? `<a class="btn small gold" href="#/com/faturar?id=${p.id}">Faturar</a>` : p.status === "Aberto" ? "Aguardando Faturamento" : "NF emitida"}</td></tr>`
+            (c) => `<tr><td>${nContrato(c)}</td><td>${esc(c.nome)}</td><td>${esc(c.documento)}</td><td>${entrega(c)}</td><td>${num(c.quantidade)}</td><td>R$ ${atr4(c.preco_atr)}</td>
+              <td>${c.toneladas_entregues != null ? num(c.toneladas_entregues) + " t · " + num(c.atr_apurado) : "—"}</td><td>${c.valor_total != null ? money(c.valor_total) : "—"}</td><td>${chip(c.status)}</td><td>${acao(c)}</td></tr>`
           )
           .join("")
       );
-  }
-
-  async function faturarPedido() {
-    const id = param("id");
-    const imps = await list("impostos", "nome");
-    view.innerHTML =
-      title("Faturar pedido de venda") +
-      `<div class="card"><p class="muted">Emite NF, baixa cana do estoque e abre conta a receber.</p>
-      <form id="f">
-        <div class="field"><label>Número da NF</label><input name="numero" required placeholder="NF-V-001" /></div>
-        <div class="field"><label>Alíquota</label><select name="imposto_id">${options(imps, "id", "nome")}</select></div>
-        <div class="field"><label>Vencimento</label><input type="date" name="vencimento" required /></div>
-        <div class="field"><label>Frete</label><input type="number" step="0.01" min="0" name="frete" value="0" /></div>
-        <button class="btn" type="submit">Emitir NF</button>
-      </form><div id="m"></div></div>`;
-    bindRpc("f", "m", "faturar_venda", (fd) => ({
-      p_pedido_id: id,
-      p_numero: fd.numero,
-      p_imposto_id: fd.imposto_id || null,
-      p_vencimento: fd.vencimento,
-      p_frete: Number(fd.frete || 0)
-    }), () => (location.href = link("/fat/notas")));
+    view.querySelectorAll("[data-cancel]").forEach((b) => {
+      b.onclick = async () => {
+        if (!confirm("Cancelar este contrato e a ordem de produção no PCP?")) return;
+        const { error: err } = await sb.rpc("cancelar_contrato_cana", { p_contrato_id: b.dataset.cancel });
+        if (err) alert(err.message);
+        else contratos();
+      };
+    });
   }
 
   window.SysCanaCore.startRouter({
     "/com/clientes": clientes,
-    "/com/novo": pedidoNovo,
-    "/com/pedidos": pedidosVenda,
-    "/com/faturar": faturarPedido
+    "/com/novo": contratoNovo,
+    "/com/pedidos": contratos
   }, "/com/pedidos");
 })();
