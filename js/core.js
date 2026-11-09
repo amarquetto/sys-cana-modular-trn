@@ -9,9 +9,35 @@
  * core.js expõe tudo em window.SysCanaCore para os arquivos de módulo usarem.
  */
 (() => {
+  // Mostra uma mensagem clara em vez de deixar a tela em branco.
+  function fatal(titulo, detalhe) {
+    const box = document.createElement("div");
+    box.className = "fatal";
+    box.innerHTML = `<h2>${titulo}</h2><p>${detalhe}</p>
+      <p><a class="btn small" href="index.html">Voltar ao login</a></p>`;
+    document.body.innerHTML = "";
+    document.body.appendChild(box);
+  }
+
   const cfg = window.SYSCANA || {};
   let supabaseUrl = String(cfg.supabaseUrl || "").replace(/\/+$/, "");
   supabaseUrl = supabaseUrl.replace(/\/rest\/v1$/i, "").replace(/\/auth\/v1$/i, "");
+
+  if (!window.supabase || !window.supabase.createClient) {
+    fatal("Não foi possível carregar o Supabase",
+      "A biblioteca <code>supabase-js</code> não carregou (internet bloqueada ou CDN fora do ar). Recarregue a página.");
+    return;
+  }
+  if (!window.SysCanaAuth) {
+    fatal("Arquivo de permissões ausente",
+      "O <code>js/roles.js</code> não carregou ou está incorreto (precisa definir <code>window.SysCanaAuth</code>).");
+    return;
+  }
+  if (!supabaseUrl || !cfg.supabaseAnonKey) {
+    fatal("Supabase não configurado",
+      "Preencha <code>supabaseUrl</code> e <code>supabaseAnonKey</code> em <code>js/config.js</code>.");
+    return;
+  }
   const sb = window.supabase.createClient(supabaseUrl, cfg.supabaseAnonKey);
 
   // Mapa: prefixo da rota -> página (arquivo html) que a implementa.
@@ -59,6 +85,7 @@
       allow: "pcp",
       title: "PCP",
       links: [
+        ["/pcp/ordens", "Ordens de contrato"],
         ["/pcp/requisicao", "Pedir insumo"],
         ["/pcp/cana", "Cana"],
         ["/pcp/insumos", "Insumos"],
@@ -94,11 +121,10 @@
       title: "Comercial",
       links: [
         ["/com/clientes", "Clientes"],
-        ["/com/novo", "Pedido de venda"],
-        ["/com/pedidos", "Pedidos de venda"]
+        ["/com/novo", "Novo contrato de cana"],
+        ["/com/pedidos", "Contratos"]
       ],
       consultas: [
-        ["/estoque", "Estoque de cana"],
         ["/fat/notas", "Notas faturadas"],
         ["/fin/receber", "Duplicatas a receber"]
       ]
@@ -136,7 +162,7 @@
       title: "Faturamento",
       links: [
         ["/fat/notas", "Notas fiscais"],
-        ["/com/pedidos", "Faturar pedidos de venda"],
+        ["/com/pedidos", "Contratos de cana"],
         ["/fat/aliquotas", "Alíquotas"],
         ["/fat/relatorios", "Relatórios"],
         ["/fat/config", "Configurações"]
@@ -241,6 +267,10 @@
       Pendente: "wait",
       "EM PROGRESSO": "wait",
       CONCLUIDO: "ok",
+      CANCELADO: "bad",
+      Cancelado: "bad",
+      "Em Produção": "wait",
+      "Aguardando Recebimento": "info",
       ENCERRADA: "bad",
       Ativo: "ok",
       Demitido: "bad"
@@ -272,7 +302,8 @@
     return window.SysCanaAuth.canWrite(SESSION_EMAIL, path);
   }
   async function list(tableName, order = "created_at") {
-    const { data, error } = await sb.from(tableName).select("*").order(order, { ascending: false });
+    // created_at: mais recentes primeiro; demais campos (nome etc.): ordem alfabética.
+    const { data, error } = await sb.from(tableName).select("*").order(order, { ascending: order !== "created_at" });
     if (error) throw error;
     return data || [];
   }
@@ -286,13 +317,13 @@
       const consultas = g.consultas
         ? `<div class="nav-mini">Consultas</div>` + g.consultas.map(([href, label]) => `<a class="sub" href="${link(href)}">${esc(label)}</a>`).join("")
         : "";
-      return `<details class="nav-group" data-allow="${g.allow}" ${show ? "open" : "hidden"}>
+      return `<details class="nav-group" data-allow="${g.allow}" ${show ? "" : "hidden"}>
         <summary>${esc(g.title)}</summary>${subs}${consultas}
       </details>`;
     }).join("");
     el.innerHTML = `
       <div class="brand">
-        <div class="brand-mark">SC</div>
+        <img class="brand-logo" src="img/logo-mark.svg" alt="SysCana" width="42" height="42" />
         <div><h1>SysCana</h1><small id="setorLabel">Setor</small></div>
       </div>
       <a class="nav-link" href="${link("/home")}">Página inicial</a>
@@ -300,53 +331,101 @@
       ${groups}`;
   }
 
+  // Marca o item ativo e abre o grupo certo (o do setor, ou o da tela atual).
+  function syncSidebar(role, raw) {
+    const here = link(raw);
+    document.querySelectorAll(".nav-link,.sub").forEach((a) => {
+      a.classList.toggle("active", a.getAttribute("href") === here);
+    });
+    // Admin: abre só o primeiro grupo que contém a tela atual (vários grupos repetem links de consulta).
+    let abriu = false;
+    document.querySelectorAll(".nav-group").forEach((d) => {
+      if (d.hidden) return;
+      const hasActive = !!d.querySelector(".sub.active");
+      if (role !== "admin" && d.dataset.allow === role) d.open = true;
+      else if (hasActive && !abriu) { d.open = true; abriu = true; }
+    });
+  }
+
+  let SESSION = null;
+  let sidebarReady = false;
   async function requireSession() {
-    const { data } = await sb.auth.getSession();
-    if (!data.session) {
+    if (SESSION) return SESSION;
+    const { data, error } = await sb.auth.getSession();
+    if (error || !data || !data.session) {
       location.href = "index.html";
       return null;
     }
-    SESSION_EMAIL = data.session.user.email || "";
-    const role = setor().role;
-    renderSidebar(role);
+    SESSION = data.session;
+    SESSION_EMAIL = SESSION.user.email || "";
     const inf = setor();
-    document.getElementById("userLabel").textContent = inf.email;
-    document.getElementById("setorBadge").textContent = inf.nome;
+    if (!sidebarReady) {
+      renderSidebar(inf.role);
+      sidebarReady = true;
+    }
+    const userEl = document.getElementById("userLabel");
+    if (userEl) userEl.textContent = inf.email;
+    const badge = document.getElementById("setorBadge");
+    if (badge) badge.textContent = inf.nome;
     const setorLabelEl = document.getElementById("setorLabel");
     if (setorLabelEl) setorLabelEl.textContent = inf.nome;
-    return data.session;
+    return SESSION;
+  }
+
+  // Menu lateral no celular
+  function bindMenuToggle() {
+    const btn = document.getElementById("menuBtn");
+    if (btn) btn.onclick = () => document.body.classList.toggle("nav-open");
+    document.addEventListener("click", (e) => {
+      if (!document.body.classList.contains("nav-open")) return;
+      if (e.target.closest(".sub, .nav-link") || (!e.target.closest(".sidebar") && !e.target.closest("#menuBtn"))) {
+        document.body.classList.remove("nav-open");
+      }
+    });
   }
 
   /**
    * Motor de rota genérico. Cada página (financeiro.js, pcp.js, ...) chama
    * SysCanaCore.startRouter(routes) passando SÓ as rotas daquele módulo.
-   * O botão "Voltar" / links de "Consultas" para outro módulo funcionam
-   * porque link() já monta a página certa — o navegador faz um load normal.
+   * Links de "Consultas" para outro módulo funcionam porque link() já monta
+   * a página certa — o navegador faz um load normal.
    */
   function startRouter(routes, defaultRoute = "/home") {
     const view = document.getElementById("view");
     async function render() {
-      const session = await requireSession();
+      let session;
+      try {
+        session = await requireSession();
+      } catch (err) {
+        view.innerHTML = title("Erro") + `<div class="card">${flash("err", err.message || String(err))}</div>`;
+        return;
+      }
       if (!session) return;
+      document.body.classList.remove("nav-open");
       const raw = (location.hash.replace("#", "") || defaultRoute).split("?")[0];
-      document.querySelectorAll(".nav-link,.sub").forEach((a) => {
-        a.classList.toggle("active", a.getAttribute("href") === link(raw));
-      });
+      syncSidebar(setor().role, raw);
       if (!window.SysCanaAuth.can(SESSION_EMAIL, raw)) {
         view.innerHTML =
           title("Acesso restrito") +
-          `<div class="card">${flash("err", "O setor " + setor().nome + " não acessa esta tela.")}</div>`;
+          `<div class="card">${flash("err", "O setor " + setor().nome + " não acessa esta tela.")}
+           <a class="btn small" href="${link("/home")}">Ir para a página inicial</a></div>`;
         return;
       }
       const fn = routes[raw];
       if (!fn) {
-        // Rota não pertence a este módulo: manda para a página certa.
-        location.href = link(raw);
+        // Rota não pertence a este módulo: manda para a página certa
+        // (compara sem ".html", pois o Vercel usa cleanUrls: /estoque).
+        const stripHtml = (x) => x.replace(/\.html$/i, "");
+        const paginaAtual = stripHtml(location.pathname.split("/").pop() || "index");
+        const paginaDestino = stripHtml(link(raw).split("#")[0]);
+        if (paginaDestino !== paginaAtual) location.href = link(raw);
+        else location.hash = "#" + defaultRoute; // rota inexistente neste módulo
         return;
       }
-      view.innerHTML = `<div class="card">Carregando…</div>`;
+      view.innerHTML = `<div class="card loading">Carregando…</div>`;
       try {
         await fn();
+        window.scrollTo(0, 0);
       } catch (err) {
         view.innerHTML = title("Erro") + `<div class="card">${flash("err", err.message || String(err))}</div>`;
       }
@@ -357,6 +436,7 @@
         await sb.auth.signOut();
         location.href = "index.html";
       };
+    bindMenuToggle();
     window.addEventListener("hashchange", render);
     render();
   }

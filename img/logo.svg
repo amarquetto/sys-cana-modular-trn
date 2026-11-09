@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 64" role="img" aria-label="SysCana — ERP da cana-de-açúcar">
+  <g>
+  <defs>
+    <linearGradient id="lbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1f5733"/>
+      <stop offset="1" stop-color="#0c2417"/>
+    </linearGradient>
+    <linearGradient id="lgold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f1e3a6"/>
+      <stop offset="0.5" stop-color="#dcb94a"/>
+      <stop offset="1" stop-color="#b48a12"/>
+    </linearGradient>
+    <linearGradient id="lleaf" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#3b8d57"/>
+      <stop offset="1" stop-color="#9fe0b0"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#lbg)"/>
+  <!-- talos de cana -->
+  <g stroke="url(#lgold)" stroke-linecap="round" fill="none">
+    <path d="M20 53 L24 22" stroke-width="5.2"/>
+    <path d="M31 54 L32 18" stroke-width="5.6"/>
+    <path d="M43 53 L40 24" stroke-width="5.2"/>
+  </g>
+  <!-- nós dos talos -->
+  <g stroke="#0c2417" stroke-width="1.5" stroke-linecap="round" opacity=".55">
+    <path d="M17.6 44 L22.6 44.3"/><path d="M18.4 35 L23.4 35.3"/><path d="M19.4 27 L24.2 27.2"/>
+    <path d="M28.6 46 L34 46"/><path d="M28.8 37 L34.2 37"/><path d="M29 28 L34.4 28"/>
+    <path d="M40.6 45 L45.6 44.6"/><path d="M40 36 L45 35.6"/><path d="M39.4 29 L44 28.6"/>
+  </g>
+  <!-- folhas -->
+  <path d="M32 18 C30 11 23 8 15 10 C19 14 24 17 32 18 Z" fill="url(#lleaf)"/>
+  <path d="M32 18 C35 10 42 7 50 9 C46 14 40 17 32 18 Z" fill="url(#lleaf)" opacity=".9"/>
+  <path d="M24 22 C20 18 15 18 11 21 C15 24 20 24 24 22 Z" fill="#3b8d57" opacity=".85"/>
+  <path d="M40 24 C43 20 48 19 53 22 C49 26 44 26 40 24 Z" fill="#3b8d57" opacity=".85"/>
+  <!-- chão -->
+  <path d="M12 55 H52" stroke="#dcb94a" stroke-width="1.6" stroke-linecap="round" opacity=".5"/>
+</g>
+  <text x="78" y="36" font-family="Inter, 'Segoe UI', Roboto, Arial, sans-serif" font-size="30" font-weight="800" letter-spacing="-0.5" fill="#11301f">SysCana</text>
+  <text x="79" y="54" font-family="Inter, 'Segoe UI', Roboto, Arial, sans-serif" font-size="10.5" font-weight="600" letter-spacing="1.6" fill="#b48a12">ERP DA CANA-DE-AÇÚCAR</text>
+</svg>

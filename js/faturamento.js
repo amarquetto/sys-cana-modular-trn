@@ -56,10 +56,11 @@
     if (!f) return alert("Nota não encontrada!");
 
     const win = window.open("", "_blank");
+    if (!win) return alert("O navegador bloqueou a janela de impressão. Libere pop-ups para este site.");
     win.document.write(`
       <html>
         <head>
-          <title>Espelho NF - ${f.numero_fatura}</title>
+          <title>Espelho NF - ${esc(f.numero_fatura)}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 25px; color: #333; }
             .box { border: 1px solid #ccc; padding: 12px; margin-bottom: 12px; border-radius: 6px; }
@@ -72,10 +73,10 @@
         <body>
           <h2>SysCana ERP Agrobusiness - Espelho de NF-e (Produtor Rural)</h2>
           <div class="box">
-            <strong>Número da NF:</strong> ${f.numero_fatura} | <strong>CFOP:</strong> ${f.cfop || '5.101'}<br>
-            <strong>Natureza de Operação:</strong> ${f.natureza_operacao} ${f.categoria_insumo ? `(${f.categoria_insumo})` : ''}<br>
+            <strong>Número da NF:</strong> ${esc(f.numero_fatura)} | <strong>CFOP:</strong> ${esc(f.cfop || '5.101')}<br>
+            <strong>Natureza de Operação:</strong> ${esc(f.natureza_operacao)} ${f.categoria_insumo ? `(${esc(f.categoria_insumo)})` : ''}<br>
             <strong>Emissão:</strong> ${dbr(f.data_emissao)} | <strong>Vencimento (5º DU):</strong> ${dbr(f.data_vencimento)}<br>
-            <strong>Destinatário / Usina:</strong> ${f.clientes?.nome || f.fornecedores?.nome_fantasia || "—"}
+            <strong>Destinatário / Usina:</strong> ${esc(f.clientes?.nome || f.fornecedores?.nome_fantasia || "—")}
           </div>
           ${f.toneladas_pesadas ? `
           <div class="box">
@@ -98,7 +99,7 @@
           </div>
           <div class="box" style="background:#f9f9f9;">
             <strong>Informações Adicionais de Interesse do Fisco:</strong><br>
-            <small>${f.inf_adicionais_fiscal || 'ICMS Diferido nos termos do Art. 345 do RICMS/SP. PIS/COFINS com alíquota suspensa (CST 09 - Lei 10.925/2004).'}</small>
+            <small>${esc(f.inf_adicionais_fiscal) || 'ICMS Diferido nos termos do Art. 345 do RICMS/SP. PIS/COFINS com alíquota suspensa (CST 09 - Lei 10.925/2004).'}</small>
           </div>
           <button onclick="window.print()" style="padding:10px 20px; background:#2e6b38; color:#fff; border:none; border-radius:4px; cursor:pointer;">🖨️ Imprimir Espelho Fiscal</button>
         </body>
@@ -112,6 +113,12 @@
       list("clientes", "nome"),
       list("fornecedores", "nome_fantasia")
     ]);
+    // Contratos já entregues pelo PCP e ainda sem NF (se a migração do contrato não foi rodada, ignora)
+    const ctRes = await sb.from("contratos_cana").select("*").in("status", ["Aguardando Recebimento", "Recebido"]).is("fatura_id", null).order("numero");
+    const contratos = ctRes.error ? [] : ctRes.data || [];
+    const optContratos = contratos
+      .map((c) => `<option value="${c.id}">Contrato ${String(c.numero).padStart(4, "0")} — ${esc(c.nome)} — ${money(c.valor_total)}</option>`)
+      .join("");
 
     view.innerHTML =
       title("Emitir Nota Fiscal", `<a class="btn ghost small" href="#/fat/notas">Voltar</a>`) +
@@ -150,6 +157,11 @@
 
             <div id="painel_cana" style="background:#faf8f2; padding:15px; border-radius:8px; border:1px solid #e5dfc5;">
               <h4 style="margin:0 0 12px 0; color:#2e6b38;">3. Apuração de Balança, Análise PCT & Consecana</h4>
+              <div class="field" style="margin:0 0 12px 0;">
+                <label>Contrato de cana entregue (opcional)</label>
+                <select name="contrato_id" id="contrato_id"><option value="">— NF avulsa, sem contrato —</option>${optContratos}</select>
+                <small class="muted">Escolher um contrato preenche cliente, toneladas, ATR e valor, e reaproveita a conta a receber já enviada ao Financeiro (não duplica).</small>
+              </div>
               <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:12px;">
                 <div class="field" style="margin:0;">
                   <label>Pesagem Balança (Tons)</label>
@@ -318,6 +330,15 @@
       if (el) el.oninput = recalcular;
     });
     $("tipo_produtor").onchange = recalcular;
+    $("contrato_id").onchange = () => {
+      const c = contratos.find((x) => x.id === $("contrato_id").value);
+      if (!c) return;
+      $("cliente_id").value = c.cliente_id || "";
+      $("toneladas_pesadas").value = c.toneladas_entregues ?? 0;
+      $("atr_qualidade").value = c.atr_apurado ?? 0;
+      $("valor_bruto_cana").value = c.valor_total ?? 0;
+      recalcular();
+    };
 
     selTipo.onchange = () => {
       const v = selTipo.value;
@@ -368,7 +389,8 @@
         p_pol: Number(fd.pol || 0),
         p_pureza: Number(fd.pureza || 0),
         p_fibra: Number(fd.fibra || 0),
-        p_cota_condominio: Number(fd.cota_condominio || 100)
+        p_cota_condominio: Number(fd.cota_condominio || 100),
+        p_contrato_id: tipo === "Venda_Cana" && fd.contrato_id ? fd.contrato_id : null
       });
 
       const msgEl = $("msg");

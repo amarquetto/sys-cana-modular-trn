@@ -4,17 +4,39 @@
 
   async function fluxoCaixa() {
     const [pagar, receber] = await Promise.all([list("contas_pagar"), list("contas_receber")]);
-    const saidas = pagar.filter((c) => c.status === "Pago").reduce((s, c) => s + Number(c.valor), 0);
-    const entradas = receber.filter((c) => c.status === "Recebido").reduce((s, c) => s + Number(c.valor), 0);
-    const aPagar = pagar.filter((c) => c.status === "Aberto").reduce((s, c) => s + Number(c.valor), 0);
-    const aRec = receber.filter((c) => c.status === "Aberto").reduce((s, c) => s + Number(c.valor), 0);
+    const hoje = new Date().toISOString().slice(0, 10);
+    const soma = (rows, st) => rows.filter((c) => c.status === st).reduce((s, c) => s + Number(c.valor), 0);
+    const saidas = soma(pagar, "Pago");
+    const entradas = soma(receber, "Recebido");
+    const aPagar = soma(pagar, "Aberto");
+    const aRec = soma(receber, "Aberto");
+    const abertos = (rows) => rows.filter((c) => c.status === "Aberto").sort((x, y) => String(x.vencimento).localeCompare(String(y.vencimento)));
+    const atrasoPagar = abertos(pagar).filter((c) => c.vencimento < hoje);
+    const atrasoRec = abertos(receber).filter((c) => c.vencimento < hoje);
+
+    const linhas = (rows) =>
+      rows
+        .slice(0, 6)
+        .map(
+          (c) => `<tr><td>${esc(c.descricao)}</td><td>${dbr(c.vencimento)}${c.vencimento < hoje ? ' <span class="chip bad">Atrasado</span>' : ""}</td><td style="text-align:right">${money(c.valor)}</td></tr>`
+        )
+        .join("") || `<tr><td colspan="3" class="muted">Nada em aberto.</td></tr>`;
+
+    const saldo = entradas - saidas;
+    const projetado = aRec - aPagar;
     view.innerHTML =
       title("Fluxo de caixa") +
-      `<div class="grid grid-2">
+      `<div class="grid grid-3">
         <div class="card"><div class="muted">Recebido</div><div class="kpi">${money(entradas)}</div></div>
         <div class="card"><div class="muted">Pago</div><div class="kpi">${money(saidas)}</div></div>
-        <div class="card"><div class="muted">Saldo realizado</div><div class="kpi">${money(entradas - saidas)}</div></div>
-        <div class="card"><div class="muted">A receber − a pagar</div><div class="kpi">${money(aRec - aPagar)}</div></div>
+        <div class="card"><div class="muted">Saldo realizado</div><div class="kpi" style="color:${saldo < 0 ? "var(--danger)" : "var(--ok)"}">${money(saldo)}</div></div>
+        <div class="card"><div class="muted">A receber</div><div class="kpi">${money(aRec)}</div>${atrasoRec.length ? `<small style="color:var(--danger)">${atrasoRec.length} em atraso</small>` : ""}</div>
+        <div class="card"><div class="muted">A pagar</div><div class="kpi">${money(aPagar)}</div>${atrasoPagar.length ? `<small style="color:var(--danger)">${atrasoPagar.length} em atraso</small>` : ""}</div>
+        <div class="card"><div class="muted">Saldo projetado (a receber − a pagar)</div><div class="kpi" style="color:${projetado < 0 ? "var(--danger)" : "var(--ok)"}">${money(projetado)}</div></div>
+      </div>
+      <div class="grid grid-2" style="margin-top:16px">
+        <div class="card"><h3>Próximos a receber</h3><div class="table-wrap"><table><thead><tr><th>Descrição</th><th>Vencimento</th><th style="text-align:right">Valor</th></tr></thead><tbody>${linhas(abertos(receber))}</tbody></table></div></div>
+        <div class="card"><h3>Próximos a pagar</h3><div class="table-wrap"><table><thead><tr><th>Descrição</th><th>Vencimento</th><th style="text-align:right">Valor</th></tr></thead><tbody>${linhas(abertos(pagar))}</tbody></table></div></div>
       </div>`;
   }
 

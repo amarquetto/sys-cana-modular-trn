@@ -7,15 +7,17 @@
   }
 
   async function home() {
-    const [produtos, sols, fats, rec, pag] = await Promise.all([
+    const [produtos, sols, fats, rec, pag, ops] = await Promise.all([
       list("produtos", "nome"),
       sb.from("solicitacoes").select("status"),
       sb.from("faturas").select("valor_total,natureza_operacao"),
       sb.from("contas_receber").select("valor,status"),
-      sb.from("contas_pagar").select("valor,status")
+      sb.from("contas_pagar").select("valor,status"),
+      sb.from("producoes").select("status").not("contrato_id", "is", null)
     ]);
+    const opsAbertas = (ops.data || []).filter((o) => o.status === "EM PROGRESSO").length;
     const baixo = produtos.filter((p) => Number(p.qtd_minima || 0) > 0 && Number(p.quantidade_estoque) <= Number(p.qtd_minima || 0)).length;
-    const vendas = (fats.data || []).filter((f) => f.natureza_operacao === "Venda").reduce((s, f) => s + Number(f.valor_total), 0);
+    const vendas = (fats.data || []).filter((f) => String(f.natureza_operacao || "").includes("Venda")).reduce((s, f) => s + Number(f.valor_total), 0);
     const aRec = (rec.data || []).filter((r) => r.status === "Aberto").reduce((s, r) => s + Number(r.valor), 0);
     const aPag = (pag.data || []).filter((r) => r.status === "Aberto").reduce((s, r) => s + Number(r.valor), 0);
     const waitFin = (sols.data || []).filter((s) => s.status === "AguardandoFinanceiro").length;
@@ -24,18 +26,18 @@
       admin: "Acesso total aos 7 módulos. Os e-mails de setor vêem só a área deles e as consultas do fluxo.",
       financeiro: "Aprove compras e baixe títulos. Consulte o andamento das solicitações e as notas.",
       compras: "Cote, emita pedido e receba. Consulte o estoque para saber se precisa comprar.",
-      pcp: "Peça insumo, abra OP e acompanhe se Compras aprovou. Veja o saldo no estoque.",
-      comercial: "Cliente e pedido de venda. Quem emite a NF é o Faturamento. Acompanhe cana e duplicatas.",
+      pcp: "Contrato do Comercial vira ordem aqui: produza, informe toneladas e ATR e dê baixa para enviar ao Financeiro.",
+      comercial: "Cadastre o contrato de cana (cliente, preço do ATR, entrega e toneladas): ele vira ordem no PCP automaticamente. A cana não passa pelo estoque.",
       folha: "Holerite gera conta a pagar. Consulte se o Financeiro já baixou o salário.",
       estoque: "Saldos e ajustes. Veja compras a chegar e produções que movimentam o estoque.",
-      faturamento: "Fature pedidos de venda. A NF de compra nasce no recebimento de Compras."
+      faturamento: "Emita as NFs (cana, serviços, devoluções). Consulte os contratos entregues. A NF de compra nasce no recebimento de Compras."
     };
     const cards = {
       admin: [
         mod("1. Financeiro", "/fin/caixa", waitFin ? waitFin + " para aprovar" : "Caixa e títulos"),
-        mod("2. PCP", "/pcp/lista", "Produção e insumos"),
+        mod("2. PCP", "/pcp/ordens", opsAbertas ? opsAbertas + " contrato(s) p/ produzir" : "Produção e insumos"),
         mod("3. Compras", "/compras/solicitacoes", "Pipeline"),
-        mod("4. Comercial", "/com/pedidos", "Pedidos de venda"),
+        mod("4. Comercial", "/com/pedidos", "Contratos de cana"),
         mod("5. Folha", "/folha/holerite", "Holerite"),
         mod("6. Estoque", "/estoque", baixo + " no mínimo"),
         mod("7. Faturamento", "/fat/notas", "Notas fiscais")
@@ -47,6 +49,7 @@
         mod("A receber", "/fin/receber", money(aRec))
       ],
       pcp: [
+        mod("Ordens de contrato", "/pcp/ordens", opsAbertas + " aguardando entrega"),
         mod("Pedir insumo", "/pcp/requisicao", "Vai para Compras"),
         mod("Produções", "/pcp/lista", "Concluir movimenta estoque"),
         mod("Estoque", "/estoque", baixo + " no mínimo"),
@@ -59,9 +62,8 @@
         mod("Receber / NF", "/compras/pedidos", "Entra no estoque")
       ],
       comercial: [
-        mod("Novo pedido", "/com/novo", "Venda de cana"),
-        mod("Pedidos", "/com/pedidos", "Aguardando NF"),
-        mod("Estoque", "/estoque", "Saldo para vender"),
+        mod("Novo contrato", "/com/novo", "Cliente, ATR, entrega e t"),
+        mod("Contratos", "/com/pedidos", "Produção e recebimento"),
         mod("A receber", "/fin/receber", money(aRec))
       ],
       folha: [
@@ -76,7 +78,8 @@
         mod("Produções", "/pcp/lista", "Colheita")
       ],
       faturamento: [
-        mod("Faturar vendas", "/com/pedidos", "NF de saída"),
+        mod("Emitir NF de cana", "/fat/emitir-especial", "Venda de cana / serviços"),
+        mod("Contratos", "/com/pedidos", "Entregas e valores"),
         mod("Notas", "/fat/notas", "Entrada e saída"),
         mod("Alíquotas", "/fat/aliquotas", "Impostos"),
         mod("Relatórios", "/fat/relatorios", money(vendas))

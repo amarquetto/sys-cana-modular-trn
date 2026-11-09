@@ -3,23 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#11301f" />
   <title>SysCana — Login</title>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/svg+xml" href="img/favicon.svg" />
+  <link rel="apple-touch-icon" href="img/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/theme.css" />
 </head>
 <body>
   <div class="login-wrap">
     <div class="login-card">
       <div class="login-art">
+        <img class="login-logo" src="img/logo-mark.svg" alt="SysCana" width="84" height="84" />
         <span class="badge">ERP da cana-de-açúcar</span>
         <h2>SysCana</h2>
-        <p>Estoque, PCP de talhões, notas fiscais, financeiro e folha — o mesmo fluxo do ERP, agora para usina e lavoura.</p>
+        <p>Estoque, PCP de talhões, notas fiscais, financeiro e folha — o fluxo completo da usina e da lavoura em um só lugar.</p>
       </div>
-      <form class="login-form" id="loginForm">
-        <h3 style="color:var(--cane-green);margin-top:0">Bem-vindo de volta</h3>
-        <p class="muted">Entre com o e-mail do seu setor.</p>
+      <form class="login-form" id="loginForm" novalidate>
+        <h3>Bem-vindo de volta</h3>
+        <p class="muted" style="margin-top:0">Entre com o e-mail do seu setor.</p>
         <div class="field">
-          <label>Setor</label>
+          <label for="setorPick">Setor</label>
           <select id="setorPick">
             <option value="">Selecionar…</option>
             <option value="admin@erp.com">Administração</option>
@@ -33,53 +39,91 @@
           </select>
         </div>
         <div class="field">
-          <label>E-mail</label>
-          <input type="email" name="email" id="email" required placeholder="setor@erp.com" />
+          <label for="email">E-mail</label>
+          <input type="email" name="email" id="email" required placeholder="setor@erp.com" autocomplete="username" />
         </div>
         <div class="field">
-          <label>Senha</label>
+          <label for="password">Senha</label>
           <input type="password" name="password" id="password" required autocomplete="current-password" />
         </div>
         <div id="msg"></div>
-        <button class="btn" type="submit" style="width:100%">Entrar</button>
+        <button class="btn" type="submit" id="submitBtn" style="width:100%">Entrar</button>
         <p class="setor-list">Da lavoura ao faturamento, cada acesso abre só o seu trecho da usina. Identifique-se e siga o fluxo da safra.</p>
       </form>
     </div>
   </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/config.js"></script>
   <script>
-    function createSb() {
+    (() => {
+      const msg = document.getElementById("msg");
+      const showErr = (t) => {
+        msg.innerHTML = "";
+        const d = document.createElement("div");
+        d.className = "flash err";
+        d.textContent = t; // textContent: nunca injeta HTML
+        msg.appendChild(d);
+      };
+
+      if (!window.supabase || !window.supabase.createClient) {
+        showErr("Não foi possível carregar o Supabase (verifique sua conexão e recarregue a página).");
+        return;
+      }
       let url = String((window.SYSCANA || {}).supabaseUrl || "").replace(/\/+$/, "");
       url = url.replace(/\/rest\/v1$/i, "").replace(/\/auth\/v1$/i, "");
       const key = (window.SYSCANA || {}).supabaseAnonKey || "";
-      return window.supabase.createClient(url, key);
-    }
-    const sb = createSb();
-    sb.auth.getSession().then(({ data }) => {
-      if (data.session) location.href = "home.html#/home";
-    });
-    document.getElementById("setorPick").addEventListener("change", (e) => {
-      const email = e.target.value;
-      if (!email) return;
-      document.getElementById("email").value = email;
-      document.getElementById("password").value = "";
-      document.getElementById("password").focus();
-    });
-    document.getElementById("loginForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      const { error } = await sb.auth.signInWithPassword({
-        email: fd.get("email"),
-        password: fd.get("password")
-      });
-      const msg = document.getElementById("msg");
-      if (error) {
-        msg.innerHTML = `<div class="flash err">${error.message}</div>`;
+      if (!url || !key) {
+        showErr("Supabase não configurado. Preencha js/config.js.");
         return;
       }
-      location.href = "home.html#/home";
-    });
+      const sb = window.supabase.createClient(url, key);
+
+      // Já logado? Vai direto para o painel.
+      sb.auth.getSession().then(({ data }) => {
+        if (data && data.session) location.replace("home.html#/home");
+      });
+
+      document.getElementById("setorPick").addEventListener("change", (e) => {
+        const email = e.target.value;
+        if (!email) return;
+        document.getElementById("email").value = email;
+        document.getElementById("password").value = "";
+        document.getElementById("password").focus();
+      });
+
+      const traduz = (m) => {
+        const t = String(m || "");
+        if (/invalid login credentials/i.test(t)) return "E-mail ou senha incorretos.";
+        if (/email not confirmed/i.test(t)) return "E-mail ainda não confirmado no Supabase.";
+        if (/failed to fetch|network/i.test(t)) return "Sem conexão com o servidor. Tente novamente.";
+        if (/rate limit|too many/i.test(t)) return "Muitas tentativas. Aguarde um instante e tente de novo.";
+        return t || "Não foi possível entrar.";
+      };
+
+      document.getElementById("loginForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById("submitBtn");
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value;
+        if (!email || !password) {
+          showErr("Informe e-mail e senha.");
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = "Entrando…";
+        msg.innerHTML = "";
+        try {
+          const { error } = await sb.auth.signInWithPassword({ email, password });
+          if (error) throw error;
+          location.replace("home.html#/home");
+        } catch (err) {
+          showErr(traduz(err && err.message));
+          btn.disabled = false;
+          btn.textContent = "Entrar";
+        }
+      });
+    })();
   </script>
 </body>
 </html>
