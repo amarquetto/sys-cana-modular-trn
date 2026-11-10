@@ -70,6 +70,7 @@
         ["/fin/caixa", "Fluxo de caixa"],
         ["/fin/aprovacoes", "Aprovar compras"],
         ["/fin/pagar", "Contas a pagar"],
+        ["/fin/salarios", "Salários (folha)"],
         ["/fin/pagar-baixa", "Baixa a pagar"],
         ["/fin/receber", "Contas a receber"],
         ["/fin/receber-baixa", "Baixa a receber"],
@@ -137,7 +138,7 @@
         ["/folha/lista", "Lista"],
         ["/folha/holerite", "Holerite"]
       ],
-      consultas: [["/fin/pagar", "Salários no financeiro"]]
+      consultas: [["/fin/salarios", "Salários no financeiro"]]
     },
     {
       allow: "estoque",

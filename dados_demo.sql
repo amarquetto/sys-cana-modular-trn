@@ -120,14 +120,19 @@ begin
       i := i + 1;
       v_hol := gerar_holerite(e.id, v_comp, e.salario, e.descontos);
       update holerites set created_at = (v_venc + 1) where id = v_hol;
-      update lancamentos set data = v_venc where data = current_date and historico = 'Holerite ' || e.nome;
-      select id into v_cp from contas_pagar where descricao = 'Folha ' || to_char(v_comp,'MM/YYYY') || ' — ' || e.nome;
+      update lancamentos set data = v_venc where data = current_date and origem = 'folha';
+      select id into v_cp from contas_pagar
+       where status = 'Aberto' and fatura_id is null and created_at = now() and vencimento = v_venc and valor = (select liquido from holerites where id = v_hol)
+       order by id limit 1;
+      if v_cp is null then
+        raise exception 'gerar_holerite não criou a conta a pagar da folha. Rode o schema.sql mais recente (função gerar_holerite).';
+      end if;
       update contas_pagar set created_at = v_venc where id = v_cp;
       -- meses fechados: tudo pago. Último mês: os 8 primeiros pagos, o resto fica em aberto (atrasado)
       if n >= 2 or i <= 8 then
         perform baixar_pagar(v_cp);
         update contas_pagar set pago_em = v_venc where id = v_cp;
-        update lancamentos set data = v_venc where data = current_date and historico = 'Pagamento Folha ' || to_char(v_comp,'MM/YYYY') || ' — ' || e.nome;
+        update lancamentos set data = v_venc where data = current_date and origem = 'pagar';
       end if;
     end loop;
   end loop;
@@ -165,13 +170,13 @@ begin
       v_fat := receber_compra(v_ped, x.nf, v_imp, d + x.venc, coalesce(x.frete,0));
       update faturas set data_emissao = (d - x.rec), created_at = (d - x.rec) where id = v_fat;
       update movimentacoes_estoque set created_at = (d - x.rec) where origem = 'compra' and observacao = 'NF ' || x.nf;
-      update lancamentos set data = (d - x.rec) where data = current_date and historico = 'Recebimento NF ' || x.nf;
+      update lancamentos set data = (d - x.rec) where data = current_date and origem = 'compra';
       select id into v_cp from contas_pagar where fatura_id = v_fat;
       update contas_pagar set created_at = (d - x.rec) where id = v_cp;
       if x.estado = 'paga' then
         perform baixar_pagar(v_cp);
         update contas_pagar set pago_em = (d - x.pago) where id = v_cp;
-        update lancamentos set data = (d - x.pago) where data = current_date and historico = 'Pagamento NF compra ' || x.nf;
+        update lancamentos set data = (d - x.pago) where data = current_date and origem = 'pagar';
       end if;
     end if;
   end loop;
@@ -230,11 +235,11 @@ begin
       update producoes set data_fim = v_dt where id = v_op;
       select id into v_cr from contas_receber where contrato_id = v_ct;
       update contas_receber set created_at = v_dt where id = v_cr;
-      update lancamentos set data = v_dt where data = current_date and historico = 'Contrato de cana ' || lpad(v_num::text, 4, '0');
+      update lancamentos set data = v_dt where data = current_date and origem = 'venda';
       if k.st = 'recebido' then
         perform baixar_receber(v_cr);
         update contas_receber set recebido_em = v_venc where id = v_cr;
-        update lancamentos set data = v_venc where data = current_date and historico like 'Recebimento Contrato ' || lpad(v_num::text, 4, '0') || ' %';
+        update lancamentos set data = v_venc where data = current_date and origem = 'receber';
       end if;
     elsif k.st = 'cancelado' then
       perform cancelar_contrato_cana(v_ct);
@@ -268,11 +273,11 @@ begin
     v_venc := case when k.pago then d - k.ago + 30 else d + k.venc end;
     update contas_receber set created_at = (d - k.ago), vencimento = v_venc where id = v_cr;
     update faturas set data_vencimento = v_venc where id = v_fat;
-    update lancamentos set data = (d - k.ago) where data = current_date and historico = 'Faturamento NF ' || k.nf;
+    update lancamentos set data = (d - k.ago) where data = current_date and origem = 'venda';
     if k.pago then
       perform baixar_receber(v_cr);
       update contas_receber set recebido_em = v_venc where id = v_cr;
-      update lancamentos set data = v_venc where data = current_date and historico = 'Recebimento NF ' || k.nf;
+      update lancamentos set data = v_venc where data = current_date and origem = 'receber';
     end if;
   end loop;
 
@@ -282,7 +287,7 @@ begin
               p_parceiro_id => (select id::text from fornecedores where nome_fantasia = k.forn), p_valor_bruto => k.v, p_categoria_insumo => k.cat);
     update faturas set data_emissao = (d - k.ago), data_vencimento = (d - k.ago), created_at = (d - k.ago),
            inf_adicionais_fiscal = 'Devolução parcial de insumo (' || k.cat || ') — produto fora de especificação' where id = v_fat;
-    update lancamentos set data = (d - k.ago) where data = current_date and historico = 'Devolução NF ' || k.nf;
+    update lancamentos set data = (d - k.ago) where data = current_date and origem = 'devolucao';
   end loop;
 
   ---------------------------------------------------------------- 8. DESPESAS DA SAFRA (contas a pagar avulsas)
@@ -292,11 +297,11 @@ begin
     values (k.descr, k.v, d + k.venc, 'Aberto', (select id from fornecedores where nome_fantasia = k.forn), d + k.cria)
     returning id into v_cp;
     perform lancar_contabil('Despesas operacionais', 'Fornecedores', k.v, 'Provisão ' || k.descr, 'pagar');
-    update lancamentos set data = (d + k.cria) where data = current_date and historico = 'Provisão ' || k.descr;
+    update lancamentos set data = (d + k.cria) where data = current_date and origem = 'pagar';
     if k.pago is not null then
       perform baixar_pagar(v_cp);
       update contas_pagar set pago_em = (d + k.pago) where id = v_cp;
-      update lancamentos set data = (d + k.pago) where data = current_date and historico = 'Pagamento ' || k.descr;
+      update lancamentos set data = (d + k.pago) where data = current_date and origem = 'pagar';
     end if;
   end loop;
 

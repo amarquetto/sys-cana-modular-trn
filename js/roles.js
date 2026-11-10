@@ -23,7 +23,7 @@ window.SysCanaAuth = {
     },
     folha: {
       nome: "Folha de pagamento",
-      rotas: ["/home", "/folha/*", "/fin/pagar"],
+      rotas: ["/home", "/folha/*", "/fin/salarios"],
       write: ["/folha/*"]
     },
     estoque: {

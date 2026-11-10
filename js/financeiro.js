@@ -142,6 +142,63 @@
     }
   }
 
+  // Só as contas a pagar que nasceram da FOLHA (holerites). Compras e despesas ficam em "Contas a pagar".
+  async function salarios() {
+    const { data, error } = await sb.from("contas_pagar").select("*").eq("origem", "folha").order("vencimento", { ascending: false });
+    if (error) {
+      view.innerHTML = title("Salários (folha de pagamento)") + `<div class="card">${flash("err", "Não foi possível ler as contas da folha. Rode a migração migracao_folha.sql no Supabase. (" + esc(error.message) + ")")}</div>`;
+      return;
+    }
+    const rows = data || [];
+    const hoje = new Date().toISOString().slice(0, 10);
+    const write = canWrite("/fin/salarios");
+    const meses = [...new Set(rows.map((r) => String(r.vencimento).slice(0, 7)))].sort().reverse();
+    const mesLabel = (m) => m.slice(5) + "/" + m.slice(0, 4);
+    view.innerHTML =
+      title("Salários (folha de pagamento)") +
+      `<p class="help">Mostra <b>somente</b> as contas geradas pelos holerites da Folha. Compras e despesas ficam em <b>Contas a pagar</b>. ${write ? "Use <b>Dar baixa</b> quando o salário for pago." : "Somente consulta: a baixa é feita pelo Financeiro."}</p>
+      <div class="grid grid-3" id="sal-kpis"></div>
+      <div class="card" style="margin-top:16px"><form class="grid grid-2" onsubmit="return false">
+        <div class="field"><label>Mês de vencimento</label><select id="sal-mes"><option value="">Todos</option>${meses.map((m) => `<option value="${m}">${mesLabel(m)}</option>`).join("")}</select></div>
+        <div class="field"><label>Situação</label><select id="sal-st"><option value="">Todas</option><option value="Aberto">Em aberto</option><option value="Pago">Pagas</option></select></div>
+      </form></div>
+      <div id="sal-tabela"></div>`;
+    const desenhar = () => {
+      const mes = document.getElementById("sal-mes").value;
+      const st = document.getElementById("sal-st").value;
+      const f = rows.filter((r) => (!mes || String(r.vencimento).startsWith(mes)) && (!st || r.status === st));
+      const soma = (arr) => arr.reduce((t, r) => t + Number(r.valor), 0);
+      const abertas = f.filter((r) => r.status === "Aberto");
+      const atrasadas = abertas.filter((r) => r.vencimento < hoje);
+      document.getElementById("sal-kpis").innerHTML =
+        `<div class="card"><div class="muted">A pagar (em aberto)</div><div class="kpi">${money(soma(abertas))}</div><small class="muted">${abertas.length} conta(s)</small></div>
+         <div class="card"><div class="muted">Em atraso</div><div class="kpi" style="color:${atrasadas.length ? "var(--danger)" : "var(--ok)"}">${money(soma(atrasadas))}</div><small class="muted">${atrasadas.length} conta(s)</small></div>
+         <div class="card"><div class="muted">Já pagas</div><div class="kpi">${money(soma(f.filter((r) => r.status === "Pago")))}</div><small class="muted">${f.filter((r) => r.status === "Pago").length} conta(s)</small></div>`;
+      document.getElementById("sal-tabela").innerHTML = table(
+        ["Descrição", "Valor", "Vencimento", "Situação", "Pago em", "Ação"],
+        f
+          .map(
+            (c) => `<tr><td>${esc(c.descricao)}</td><td>${money(c.valor)}</td>
+              <td>${dbr(c.vencimento)}${c.status === "Aberto" && c.vencimento < hoje ? ' <span class="chip bad">Atrasado</span>' : ""}</td>
+              <td>${chip(c.status)}</td><td>${c.pago_em ? dbr(c.pago_em) : "—"}</td>
+              <td>${write && c.status === "Aberto" ? `<button class="btn small" data-baixa="${c.id}">Dar baixa</button>` : "—"}</td></tr>`
+          )
+          .join("") || `<tr><td colspan="6" class="muted">Nenhuma conta da folha neste filtro.</td></tr>`
+      );
+      document.querySelectorAll("#sal-tabela [data-baixa]").forEach((b) => {
+        b.onclick = async () => {
+          if (!confirm("Confirmar o pagamento deste salário?")) return;
+          const { error: err } = await sb.rpc("baixar_pagar", { p_id: b.dataset.baixa });
+          if (err) alert(err.message);
+          else salarios();
+        };
+      });
+    };
+    document.getElementById("sal-mes").onchange = desenhar;
+    document.getElementById("sal-st").onchange = desenhar;
+    desenhar();
+  }
+
   async function baixa(kind) {
     const isPagar = kind === "pagar";
     const tableName = isPagar ? "contas_pagar" : "contas_receber";
@@ -184,6 +241,7 @@
     "/fin/caixa": fluxoCaixa,
     "/fin/aprovacoes": aprovacoes,
     "/fin/pagar": () => contas("pagar"),
+    "/fin/salarios": salarios,
     "/fin/pagar-baixa": () => baixa("pagar"),
     "/fin/receber": () => contas("receber"),
     "/fin/receber-baixa": () => baixa("receber"),

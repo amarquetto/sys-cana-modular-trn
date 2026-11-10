@@ -258,6 +258,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, te
   transition: border-color .15s, box-shadow .15s;
 }
 textarea { min-height: 84px; resize: vertical; }
+input.locked, input[readonly].locked {
+  background: #eaf1ec !important; color: var(--green-800) !important; font-weight: 700;
+  cursor: not-allowed; border: 1px dashed #9db8a7 !important; box-shadow: none !important;
+}
+input.locked.destaque {
+  background: var(--green-800) !important; color: var(--gold-200) !important;
+  border: 1px solid var(--green-800) !important; font-size: 1.15rem;
+}
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--green-500); box-shadow: var(--focus); }
 input:disabled, select:disabled, textarea:disabled { background: #f3f2ea; color: var(--muted); }
 input::placeholder, textarea::placeholder { color: #a3a894; }

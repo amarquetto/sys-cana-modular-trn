@@ -4,10 +4,13 @@
 1. `schema.sql` (só na primeira instalação)
 2. `migracao_estoque.sql`
 3. `migracao_faturamento_fiscal.sql` (Emitir NF, Alíquotas, vínculo NF ↔ contrato)
-4. `migracao_contrato_cana.sql` (fluxo Comercial → PCP → Financeiro; substitui a antiga `migracao_ordem_venda_pcp.sql`)
-5. `dados_demo.sql` (OPCIONAL: carga de demonstração — veja abaixo)
+4. `migracao_contrato_cana.sql` (fluxo Comercial → PCP → Financeiro)
+5. `migracao_folha.sql` (correções da Folha de Pagamento e reparo de acentos — veja abaixo)
+6. `dados_demo.sql` (OPCIONAL: carga de demonstração)
 
-Todas as migrações são idempotentes. Se você já tinha rodado versões anteriores, **rode a 3 e a 4 de novo** (trazem o vínculo NF ↔ contrato).
+Todas são idempotentes. Se já tinha rodado versões anteriores, rode de novo a 3, a 4 e a 5.
+
+**Como colar o SQL sem corromper os acentos:** abra o arquivo no VS Code/Bloco de Notas (UTF-8), selecione tudo (Ctrl+A), copie (Ctrl+C) e cole no editor do Supabase. Não use `Get-Content ... | clip` do PowerShell nem copie de uma janela do terminal: isso lê o UTF-8 como Windows-1252 e grava "Ã§", "â€”" no banco. Se isso acontecer de novo, rode `select public.corrigir_acentos();` (a `migracao_folha.sql` é 100% ASCII de propósito, então ela nunca é corrompida).
 
 ## 2. Configuração
 Edite `js/config.js` com `supabaseUrl` e `supabaseAnonKey`.
@@ -45,3 +48,9 @@ Datas são relativas ao dia em que você rodar (sempre parece uma safra em andam
 
 ## Logo
 Arquivos em `img/`: `logo-mark.svg` (ícone), `logo.svg` (horizontal, com nome), PNGs (`logo-512.png`, `logo-horizontal.png`, `apple-touch-icon.png`). O ícone é usado no login, no menu lateral e no favicon.
+
+## Folha de pagamento (o que mudou)
+- **Funcionário:** CPF validado (dígitos verificadores) e único; salário > 0; cargo escolhido em lista (botão "+ Novo cargo"); **Inativar/Reativar** no lugar de Excluir (o histórico de holerites nunca se perde; o banco recusa excluir quem tem holerites).
+- **Holerite:** escolha funcionário + mês/ano. O **bruto vem do cadastro**; **INSS e IRRF são calculados automaticamente**; descontos e líquido são campos bloqueados. Não aceita mês futuro nem holerite duplicado (mesmo funcionário e mês). Mostra o histórico com status do pagamento e **PDF** (individual ou de todos do mês).
+- **INSS/IRRF:** tabelas no banco com vigência (`folha_inss_faixas`, `folha_irrf_faixas`, `folha_irrf_parametros`), valores de 2026 (INSS: Portaria Interministerial MPS/MF 13/2026; IRRF: desconto simplificado de R$ 607,20 e redutor da Lei 15.270/2025). Em 2027, basta inserir novas linhas com a nova vigência. Cálculo **estimado**: não considera dependentes, pensão alimentícia nem outros descontos; confirme com a contabilidade.
+- **Financeiro > Salários (folha):** mostra só as contas geradas pelos holerites; a baixa do pagamento é feita ali.
